@@ -1,13 +1,10 @@
 package main.java.com.company.simplednschecker.service;
 
+import java.net.InetAddress;
+
 /**
  * The SimpleDNSCheckerService glues everything together and runs it
  * It is a Singleton - initialised only once
- *
- * Each MessagePublisher/MessageConsumer is treated as a Task
- *
- * Tasks are executed by a FixedThreadPool, the size of which is determined by the number of logical CPU cores
- * This limits the excessive creation of threads which can be expensive
  */
 public class SimpleDNSCheckerService {
     private static SimpleDNSCheckerService instance;
@@ -29,7 +26,24 @@ public class SimpleDNSCheckerService {
     }
 
     public void run() {
-        System.out.println("Hello from Simple DNS Checker Service!");
+        String domainName = "www.google.com";
+
+        try {
+            InetAddress[] inetAddressArray = InetAddress.getAllByName(domainName);
+            for (int i = 0; i < inetAddressArray.length; i++) {
+                displayDnsDetails(domainName +  " #" + (i + 1), inetAddressArray[i]);
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    public static void displayDnsDetails(String host, InetAddress inetAddress) {
+        System.out.println("--------------------------");
+        System.out.println("Which Host: " + host);
+        System.out.println("Canonical Host Name: " + inetAddress.getCanonicalHostName());
+        System.out.println("Host Name: " + inetAddress.getHostName());
+        System.out.println("Host Address: " + inetAddress.getHostAddress());
     }
 
 }
