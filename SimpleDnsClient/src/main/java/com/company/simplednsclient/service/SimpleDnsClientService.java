@@ -2,7 +2,7 @@ package com.company.simplednsclient.service;
 
 import com.company.simplednsclient.core.SimpleDnsClient;
 
-import java.io.*;
+import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
 /**

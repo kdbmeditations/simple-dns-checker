@@ -5,8 +5,6 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 public class DummyDnsServer {
     private AsynchronousServerSocketChannel serverChannel;
@@ -14,7 +12,7 @@ public class DummyDnsServer {
 
     public DummyDnsServer() { }
 
-    public void run() throws InterruptedException, ExecutionException, IOException {
+    public void run() throws IOException {
         init();
 
         for (;;) {
@@ -22,7 +20,7 @@ public class DummyDnsServer {
         }
     }
 
-    public void init() throws IOException, ExecutionException, InterruptedException {
+    public void init() throws IOException {
         serverChannel = AsynchronousServerSocketChannel.open();
         InetSocketAddress hostAddress = new InetSocketAddress("localhost", 3883);
         serverChannel.bind(hostAddress);

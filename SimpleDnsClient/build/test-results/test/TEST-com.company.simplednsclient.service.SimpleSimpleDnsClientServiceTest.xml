@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.company.simplednsclient.service.SimpleSimpleDnsClientServiceTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2020-08-07T12:51:40" hostname="LAPTOP-8JT3590E" time="0.002">
-  <properties/>
-  <testcase name="testMessageProducerInitialization" classname="com.company.simplednsclient.service.SimpleSimpleDnsClientServiceTest" time="0.002"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

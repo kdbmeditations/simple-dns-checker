@@ -1,10 +1,8 @@
 package com.company.simplednsclient.core;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 public class SimpleDnsClient {
@@ -16,7 +14,7 @@ public class SimpleDnsClient {
     private Future connectResult;
     private Boolean waitingForResponse;
     private int messageId;
-    ByteBuffer buffer;
+    private ByteBuffer buffer;
 
     public SimpleDnsClient() { }
 
@@ -44,9 +42,8 @@ public class SimpleDnsClient {
     }
 
     public void checkSendQuery() {
-        if (waitingForResponse) {
+        if (waitingForResponse)
             return;
-        }
 
         try {
             if (clientChannel == null) {
@@ -64,7 +61,6 @@ public class SimpleDnsClient {
                 byte[] messageByteArray = query.getBytes();
                 ByteBuffer buffer = ByteBuffer.wrap(messageByteArray);
                 writeResult = clientChannel.write(buffer);
-                //waitingForResponse = true;
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -85,9 +81,8 @@ public class SimpleDnsClient {
     }
 
     public void checkResponseReceived() {
-        if (!waitingForResponse) {
+        if (!waitingForResponse)
             return;
-        }
 
         try {
             if (readResult == null) {
