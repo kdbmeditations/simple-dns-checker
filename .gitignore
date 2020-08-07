@@ -15,6 +15,7 @@
 **/.idea/*
 /.idea
 /build
+./build
 **/*.iml
 
 # Generated files
@@ -135,6 +136,5 @@ bin*
 .classpath
 .settings
 .project
-
 
 # End of https://www.toptal.com/developers/gitignore/api/java,intellij
