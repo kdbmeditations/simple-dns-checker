@@ -28,6 +28,8 @@ public class DummyDnsServer {
         InetSocketAddress hostAddress = new InetSocketAddress("localhost", 3883);
         serverChannel.bind(hostAddress);
 
+        System.out.println("Server channel bound to port: " + hostAddress.getPort());
+        
         Future acceptResult = serverChannel.accept();
         clientChannel = (AsynchronousSocketChannel) acceptResult.get();
     }

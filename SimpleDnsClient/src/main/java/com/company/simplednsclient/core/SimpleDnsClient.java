@@ -16,9 +16,6 @@ public class SimpleDnsClient {
         int messageId = 0;
         init();
 
-        //sendQuery(messageId);
-        //checkForResponse();
-
         while (true) {
             sendQuery(messageId);
             checkForResponse();
@@ -29,6 +26,7 @@ public class SimpleDnsClient {
 
     public void init() throws IOException, ExecutionException, InterruptedException {
         clientChannel = AsynchronousSocketChannel.open();
+        System.out.println("Client is started: " + clientChannel.isOpen());
         InetSocketAddress hostAddress = new InetSocketAddress("localhost", 3883);
         Future connectResult = clientChannel.connect(hostAddress);
         connectResult.get();
