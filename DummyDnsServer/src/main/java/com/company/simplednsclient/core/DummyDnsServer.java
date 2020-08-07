@@ -17,9 +17,8 @@ public class DummyDnsServer {
     public void run() throws InterruptedException, ExecutionException, IOException {
         init();
 
-        while (true) {
-            checkForQuery();
-            Thread.sleep(500);
+        for (;;) {
+            processQuery();
         }
     }
 
@@ -29,42 +28,34 @@ public class DummyDnsServer {
         serverChannel.bind(hostAddress);
 
         System.out.println("Server channel bound to port: " + hostAddress.getPort());
-        
-        Future acceptResult = serverChannel.accept();
-        clientChannel = (AsynchronousSocketChannel) acceptResult.get();
     }
 
-    public void checkForQuery() {
+    public void processQuery() {
         try {
-            if (clientChannel != null && clientChannel.isOpen()) {
-                ByteBuffer buffer = ByteBuffer.allocate(1024);
-                Future readResult = clientChannel.read(buffer);
-                readResult.get();
-
-                if (readResult.isDone()) {
-                    String message = new String(buffer.array()).trim();
-                    System.out.println("Received message: " + message);
-                    sendResponse(message);
-                }
-            }
+            clientChannel = serverChannel.accept().get();
+            ByteBuffer buffer = ByteBuffer.allocate(1024);
+            clientChannel.read(buffer).get();
+            String message = new String(buffer.array()).trim();
+            System.out.println("Received message: " + message);
+            sendResponse(message);
         } catch (Exception e) {
             System.out.println(e.getMessage());
+        } finally {
+            try {
+                clientChannel.close();
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
         }
     }
 
     public void sendResponse(String message) {
         try {
-            if (clientChannel != null && clientChannel.isOpen()) {
-                String msg = "Acknowledged message: " + message;
-                byte[] messageByteArray = msg.getBytes();
-                ByteBuffer buffer = ByteBuffer.wrap(messageByteArray);
-                Future writeResult = clientChannel.write(buffer);
-                writeResult.get();
-
-                if (writeResult.isDone()) {
-                    System.out.println("Send message: " + msg);
-                }
-            }
+            String msg = "Acknowledged message: " + message;
+            byte[] messageByteArray = msg.getBytes();
+            ByteBuffer buffer = ByteBuffer.wrap(messageByteArray);
+            clientChannel.write(buffer).get();
+            System.out.println("Send message: " + msg);
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
