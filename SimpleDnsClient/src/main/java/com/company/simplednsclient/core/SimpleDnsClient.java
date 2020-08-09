@@ -6,12 +6,12 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.util.concurrent.Future;
 
 public class SimpleDnsClient {
-    private AsynchronousSocketChannel clientChannel;
-    private Future writeResult;
-    private Future readResult;
+    private AsynchronousSocketChannel clientSocketChannel;
+    private Future futureConnectResult;
+    private Future futureWriteResult;
+    private Future futureReadResult;
     private String query;
     private InetSocketAddress hostAddress;
-    private Future connectResult;
     private Boolean waitingForResponse;
     private int messageId;
     private ByteBuffer buffer;
@@ -23,7 +23,6 @@ public class SimpleDnsClient {
 
         for (;;) {
             check();
-            System.out.print(".");
             Thread.sleep(100);
         }
     }
@@ -46,21 +45,21 @@ public class SimpleDnsClient {
             return;
 
         try {
-            if (clientChannel == null) {
+            if (clientSocketChannel == null) {
                 System.out.println("Connecting to DNS server");
-                clientChannel = AsynchronousSocketChannel.open();
-                connectResult = clientChannel.connect(hostAddress);
+                clientSocketChannel = AsynchronousSocketChannel.open();
+                futureConnectResult = clientSocketChannel.connect(hostAddress);
             }
 
-            if (connectResult != null && connectResult.isDone() && writeResult == null) {
-                connectResult.get();
-                connectResult = null;
+            if (futureConnectResult != null && futureConnectResult.isDone() && futureWriteResult == null) {
+                futureConnectResult.get();
+                futureConnectResult = null;
                 System.out.println("Connected to DNS server");
                 messageId++;
                 query = "Message with messsage Id: " + messageId;
                 byte[] messageByteArray = query.getBytes();
                 ByteBuffer buffer = ByteBuffer.wrap(messageByteArray);
-                writeResult = clientChannel.write(buffer);
+                futureWriteResult = clientSocketChannel.write(buffer);
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -69,9 +68,9 @@ public class SimpleDnsClient {
 
     public void checkSendQueryDone() {
         try {
-            if (writeResult != null && writeResult.isDone()) {
-                writeResult.get();
-                writeResult = null;
+            if (futureWriteResult != null && futureWriteResult.isDone()) {
+                futureWriteResult.get();
+                futureWriteResult = null;
                 System.out.println("Send message: " + query);
                 waitingForResponse = true;
             }
@@ -85,18 +84,18 @@ public class SimpleDnsClient {
             return;
 
         try {
-            if (readResult == null) {
+            if (futureReadResult == null) {
                 buffer = ByteBuffer.allocate(1024);
-                readResult = clientChannel.read(buffer);
+                futureReadResult = clientSocketChannel.read(buffer);
             }
 
-            if (readResult.isDone()) {
-                readResult.get();
-                readResult = null;
+            if (futureReadResult.isDone()) {
+                futureReadResult.get();
+                futureReadResult = null;
                 String message = new String(buffer.array()).trim();
                 System.out.println("Received response: " + message);
-                clientChannel.close();
-                clientChannel = null;
+                clientSocketChannel.close();
+                clientSocketChannel = null;
                 waitingForResponse = false;
             }
         } catch (Exception e) {
