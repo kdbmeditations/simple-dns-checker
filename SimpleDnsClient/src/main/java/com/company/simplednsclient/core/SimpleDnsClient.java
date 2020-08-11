@@ -1,105 +1,61 @@
 package com.company.simplednsclient.core;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousSocketChannel;
-import java.util.concurrent.Future;
+import java.nio.channels.DatagramChannel;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.util.Iterator;
+import java.util.Set;
 
 public class SimpleDnsClient {
-    private AsynchronousSocketChannel clientSocketChannel;
-    private Future futureConnectResult;
-    private Future futureWriteResult;
-    private Future futureReadResult;
-    private String query;
-    private InetSocketAddress hostAddress;
-    private Boolean waitingForResponse;
-    private int messageId;
-    private ByteBuffer buffer;
 
     public SimpleDnsClient() { }
 
-    public void run() throws InterruptedException {
-        init();
+    public void run() throws IOException, InterruptedException {
+        InetSocketAddress serverAddress = new InetSocketAddress("localhost",3883);
+        DatagramChannel client = DatagramChannel.open();
+        client.socket().bind(null);
+        client.configureBlocking(false);
 
-        for (;;) {
-            check();
-            Thread.sleep(100);
-        }
-    }
+        System.out.println("Client Started: PORT - " + client.socket().getLocalPort());
 
-    private void check() {
-        checkSendQuery();
-        checkSendQueryDone();
-        checkResponseReceived();
-    }
+        Selector selector = Selector.open();
+        client.register(selector, SelectionKey.OP_READ);
 
-    public void init() {
-        messageId = 0;
-        waitingForResponse = false;
-        System.out.println("Client is started.");
-        hostAddress = new InetSocketAddress("localhost", 3883);
-    }
+        String msg = "Hello from Client!";
+        ByteBuffer buffer = ByteBuffer.wrap(msg.getBytes());
 
-    public void checkSendQuery() {
-        if (waitingForResponse)
-            return;
+        client.send(buffer, serverAddress);
+        buffer.clear();
 
-        try {
-            if (clientSocketChannel == null) {
-                System.out.println("Connecting to DNS server");
-                clientSocketChannel = AsynchronousSocketChannel.open();
-                futureConnectResult = clientSocketChannel.connect(hostAddress);
+        for (int i = 0; i < 3; i++) {
+            System.out.println("Waiting for response from server");
+            if (selector.selectNow() >= 1) {
+                Set keys = selector.selectedKeys();
+
+                // Iterate through the Set of keys.
+                for(Iterator keyIterator = keys.iterator(); keyIterator.hasNext(); ) {
+                    // Get a key from the set, and remove it from the set
+                    SelectionKey key = (SelectionKey)keyIterator.next();
+                    keyIterator.remove();
+
+                    if (key.isReadable()) {
+                        ByteBuffer responseBuffer = ByteBuffer.allocate(1024);
+                        client.receive(responseBuffer);
+                        responseBuffer.flip();
+                        int limits = responseBuffer.limit();
+                        byte bytes[] = new byte[limits];
+                        responseBuffer.get(bytes, 0, limits);
+                        String message = new String(bytes);
+                        System.out.println("Client: Server at " + serverAddress + " sent: " + message);
+                        responseBuffer.clear();
+                    }
+                }
             }
 
-            if (futureConnectResult != null && futureConnectResult.isDone() && futureWriteResult == null) {
-                futureConnectResult.get();
-                futureConnectResult = null;
-                System.out.println("Connected to DNS server");
-                messageId++;
-                query = "Message with messsage Id: " + messageId;
-                byte[] messageByteArray = query.getBytes();
-                ByteBuffer buffer = ByteBuffer.wrap(messageByteArray);
-                futureWriteResult = clientSocketChannel.write(buffer);
-            }
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
-    }
-
-    public void checkSendQueryDone() {
-        try {
-            if (futureWriteResult != null && futureWriteResult.isDone()) {
-                futureWriteResult.get();
-                futureWriteResult = null;
-                System.out.println("Send message: " + query);
-                waitingForResponse = true;
-            }
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
-    }
-
-    public void checkResponseReceived() {
-        if (!waitingForResponse)
-            return;
-
-        try {
-            if (futureReadResult == null) {
-                buffer = ByteBuffer.allocate(1024);
-                futureReadResult = clientSocketChannel.read(buffer);
-            }
-
-            if (futureReadResult.isDone()) {
-                futureReadResult.get();
-                futureReadResult = null;
-                String message = new String(buffer.array()).trim();
-                System.out.println("Received response: " + message);
-                clientSocketChannel.close();
-                clientSocketChannel = null;
-                waitingForResponse = false;
-            }
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
+            Thread.sleep(2000);
         }
     }
 }
