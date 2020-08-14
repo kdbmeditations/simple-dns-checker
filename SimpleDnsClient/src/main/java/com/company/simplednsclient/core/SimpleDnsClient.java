@@ -30,7 +30,7 @@ public class SimpleDnsClient {
         client.send(buffer, serverAddress);
         buffer.clear();
 
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 10; i++) {
             System.out.println("Waiting for response from server");
             if (selector.selectNow() >= 1) {
                 Set keys = selector.selectedKeys();
@@ -55,7 +55,11 @@ public class SimpleDnsClient {
                 }
             }
 
-            Thread.sleep(2000);
+            Thread.sleep(100);
         }
+    }
+
+    public void check() {
+
     }
 }
