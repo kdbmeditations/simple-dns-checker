@@ -1,5 +1,7 @@
 package com.company.simplednsclient.core;
 
+import com.company.simplednsclient.utils.DnsTrackerState;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -11,18 +13,19 @@ import java.util.Set;
 
 public class DnsTracker {
     private InetSocketAddress serverAddress;
-    private String domainName;
     private DatagramChannel dnsTrackerChannel;
     private Selector selector;
+    private DnsTrackerState dnsTrackerState;
+
     private int failedAttempts;
 
     private ByteBuffer requestMessageBuffer;
     private ByteBuffer responseMessageBuffer;
 
-    public DnsTracker(InetSocketAddress serverAddress, String domainName) {
-        this.serverAddress = serverAddress;
-        this.domainName = domainName;
+    public DnsTracker() {
         this.failedAttempts = 0;
+        this.dnsTrackerState = DnsTrackerState.STANDBY;
+        responseMessageBuffer = ByteBuffer.allocate(1024);
     }
 
     public void start() {
@@ -43,45 +46,69 @@ public class DnsTracker {
 
     public void check() {
         try {
-            String msg = "I am DNS Tracker running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " requesting information for: " + domainName;
-            requestMessageBuffer = ByteBuffer.wrap(msg.getBytes());
-            dnsTrackerChannel.send(requestMessageBuffer, serverAddress);
-            requestMessageBuffer.clear();
-
-            if (selector.selectNow() >= 1) {
-                handleResponse();
-            } else {
-                failedAttempts++;
-            }
+            checkState();
         } catch (Exception e) {
             System.out.println("Exception thrown when attempting to perform a DNS Tracker check: " + e.getMessage());
         }
     }
 
-    private void handleResponse() throws IOException {
-        Set keys = selector.selectedKeys();
-
-        // Iterate through the Set of keys.
-        for(Iterator keyIterator = keys.iterator(); keyIterator.hasNext(); ) {
-            // Get a key from the set, and remove it from the set
-            SelectionKey key = (SelectionKey)keyIterator.next();
-            keyIterator.remove();
-
-            if (key.isReadable()) {
-                processResponse();
-            }
+    private void checkState() throws IOException {
+        switch (dnsTrackerState) {
+            case STANDBY:
+                sendRequest();
+                break;
+            case WAITING_FOR_RESPONSE:
+                checkForResponse();
+                break;
+            case TIMED_OUT:
+                dnsTrackerState = DnsTrackerState.TIMED_OUT;
+                break;
         }
     }
 
+    private void checkForResponse() throws IOException {
+        if (selector.selectNow() >= 1) {
+            Set keys = selector.selectedKeys();
+
+            for(Iterator keyIterator = keys.iterator(); keyIterator.hasNext(); ) {
+                SelectionKey key = (SelectionKey)keyIterator.next();
+                keyIterator.remove();
+
+                if (key.isReadable()) {
+                    processResponse();
+                }
+            }
+        } else {
+            failedAttempts++;
+            System.out.println("DNS Tracker running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " failed to receive response - attempts: " + failedAttempts);
+        }
+    }
+
+    private void sendRequest() throws IOException {
+        System.out.println("DNS Tracker running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " sending request...");
+
+        String msg = "I am DNS Tracker running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " requesting information...";
+        requestMessageBuffer = ByteBuffer.wrap(msg.getBytes());
+        dnsTrackerChannel.send(requestMessageBuffer, serverAddress);
+
+        requestMessageBuffer.clear();
+        dnsTrackerState = DnsTrackerState.WAITING_FOR_RESPONSE;
+    }
+
     private void processResponse() throws IOException {
-        responseMessageBuffer = ByteBuffer.allocate(1024);
+        System.out.println("DNS Tracker running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " processing response..");
+
         dnsTrackerChannel.receive(responseMessageBuffer);
         responseMessageBuffer.flip();
         int limits = responseMessageBuffer.limit();
         byte bytes[] = new byte[limits];
         responseMessageBuffer.get(bytes, 0, limits);
         String message = new String(bytes);
+
         System.out.println("Dns Tracker: Server at " + serverAddress + " sent: " + message);
+
         responseMessageBuffer.clear();
+        failedAttempts = 0;
+        dnsTrackerState = DnsTrackerState.STANDBY;
     }
 }

@@ -28,7 +28,6 @@ public class DummyDnsServer {
         for (;;) {
             //If there's a packet available, fetch it:
             if (selector.selectNow() >= 1) {
-                System.out.println("Select now >= 1...");
                 Set keys = selector.selectedKeys();
 
                 // Iterate through the Set of keys.
