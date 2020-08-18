@@ -2,9 +2,6 @@ package com.company.simplednsclient.service;
 
 import com.company.simplednsclient.core.DummyDnsServer;
 
-import java.io.IOException;
-import java.util.concurrent.ExecutionException;
-
 /**
  * The DummyDnsServerService glues everything together and runs it
  * It is a Singleton - initialised only once
@@ -28,8 +25,9 @@ public class DummyDnsServerService {
         return instance;
     }
 
-    public void run() throws IOException, InterruptedException, ExecutionException {
+    public void run() throws InterruptedException{
         DummyDnsServer dummyDnsServer = new DummyDnsServer();
+        dummyDnsServer.start();
         dummyDnsServer.run();
     }
 
