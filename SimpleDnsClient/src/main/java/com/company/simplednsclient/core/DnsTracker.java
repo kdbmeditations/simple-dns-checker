@@ -16,16 +16,17 @@ public class DnsTracker {
     private DatagramChannel dnsTrackerChannel;
     private Selector selector;
     private DnsTrackerState dnsTrackerState;
+    private int dnsTrackerId;
 
     private int failedAttempts;
 
     private ByteBuffer requestMessageBuffer;
     private ByteBuffer responseMessageBuffer;
 
-    public DnsTracker() {
+    public DnsTracker(int dnsTrackerId) {
+        this.dnsTrackerId = dnsTrackerId;
         this.failedAttempts = 0;
         this.dnsTrackerState = DnsTrackerState.STANDBY;
-        responseMessageBuffer = ByteBuffer.allocate(1024);
     }
 
     public void start() {
@@ -35,10 +36,11 @@ public class DnsTracker {
             dnsTrackerChannel.socket().bind(null);
             dnsTrackerChannel.configureBlocking(false);
 
-            System.out.println("DNS Tracker Started: PORT - " + dnsTrackerChannel.socket().getLocalPort());
+            System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") Started: PORT - " + dnsTrackerChannel.socket().getLocalPort());
 
             selector = Selector.open();
             dnsTrackerChannel.register(selector, SelectionKey.OP_READ);
+            responseMessageBuffer = ByteBuffer.allocate(1024);
         } catch (Exception e) {
             System.out.println("Exception thrown when attempting to start a DNS Tracker: " + e.getMessage());
         }
@@ -80,14 +82,14 @@ public class DnsTracker {
             }
         } else {
             failedAttempts++;
-            System.out.println("DNS Tracker running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " failed to receive response - attempts: " + failedAttempts);
+            System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " failed to receive response - attempts: " + failedAttempts);
         }
     }
 
     private void sendRequest() throws IOException {
-        System.out.println("DNS Tracker running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " sending request...");
+        System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " sending request...");
 
-        String msg = "I am DNS Tracker running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " requesting information...";
+        String msg = "I am DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " requesting information...";
         requestMessageBuffer = ByteBuffer.wrap(msg.getBytes());
         dnsTrackerChannel.send(requestMessageBuffer, serverAddress);
 
@@ -96,7 +98,7 @@ public class DnsTracker {
     }
 
     private void processResponse() throws IOException {
-        System.out.println("DNS Tracker running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " processing response..");
+        System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " processing response..");
 
         dnsTrackerChannel.receive(responseMessageBuffer);
         responseMessageBuffer.flip();
@@ -105,7 +107,7 @@ public class DnsTracker {
         responseMessageBuffer.get(bytes, 0, limits);
         String message = new String(bytes);
 
-        System.out.println("Dns Tracker: Server at " + serverAddress + " sent: " + message);
+        System.out.println("DNS Tracker (ID: " + dnsTrackerId + "): Server at " + serverAddress + " sent: " + message);
 
         responseMessageBuffer.clear();
         failedAttempts = 0;

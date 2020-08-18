@@ -1,17 +1,27 @@
 package com.company.simplednsclient.core;
 
 public class SimpleDnsClient {
+    private DnsTrackers dnsTrackers;
 
-    public SimpleDnsClient() { }
+    public SimpleDnsClient() {
+        dnsTrackers = new DnsTrackers();
+    }
 
     public void run() throws InterruptedException {
-        DnsTracker dnsTracker = new DnsTracker();
-        dnsTracker.start();
+        init();
 
         for (;;) {
             System.out.println("Performing check...");
-            dnsTracker.check();
-            Thread.sleep(2000);
+            dnsTrackers.check();
+            Thread.sleep(100);
         }
+    }
+
+    public void init() {
+        for (int i = 0; i < 2; i++) {
+            dnsTrackers.addDnsTracker(i);
+        }
+
+        dnsTrackers.start();
     }
 }

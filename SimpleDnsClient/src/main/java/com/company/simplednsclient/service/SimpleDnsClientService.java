@@ -2,9 +2,6 @@ package com.company.simplednsclient.service;
 
 import com.company.simplednsclient.core.SimpleDnsClient;
 
-import java.io.IOException;
-import java.util.concurrent.ExecutionException;
-
 /**
  * The SimpleDnsClientService glues everything together and runs it
  * It is a Singleton - initialised only once
@@ -28,7 +25,7 @@ public class SimpleDnsClientService {
         return instance;
     }
 
-    public void run() throws IOException, ExecutionException, InterruptedException {
+    public void run() throws InterruptedException {
         SimpleDnsClient simpleDnsClient = new SimpleDnsClient();
         simpleDnsClient.run();
     }
