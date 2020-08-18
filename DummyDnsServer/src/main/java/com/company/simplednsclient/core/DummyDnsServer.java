@@ -11,7 +11,7 @@ import java.util.Set;
 
 public class DummyDnsServer {
     private InetSocketAddress serverAddress;
-    private DatagramChannel serverChannel;
+    private DatagramChannel serverDatagramChannel;
     private Selector selector;
     private ByteBuffer receiveBuffer;
 
@@ -27,14 +27,14 @@ public class DummyDnsServer {
     public void start() {
         try {
             serverAddress = new InetSocketAddress("localhost", 3883);
-            serverChannel = DatagramChannel.open();
-            serverChannel.socket().bind(serverAddress);
-            serverChannel.configureBlocking(false);
+            serverDatagramChannel = DatagramChannel.open();
+            serverDatagramChannel.socket().bind(serverAddress);
+            serverDatagramChannel.configureBlocking(false);
 
             System.out.println("Server Started: " + serverAddress);
 
             selector = Selector.open();
-            serverChannel.register(selector, SelectionKey.OP_READ);
+            serverDatagramChannel.register(selector, SelectionKey.OP_READ);
 
             receiveBuffer = ByteBuffer.allocate(1024);
         } catch (Exception e) {
@@ -63,7 +63,7 @@ public class DummyDnsServer {
 
     private void processRequest() {
         try {
-            SocketAddress clientAddress = serverChannel.receive(receiveBuffer);
+            SocketAddress clientAddress = serverDatagramChannel.receive(receiveBuffer);
             receiveBuffer.flip();
             int limits = receiveBuffer.limit();
             byte bytes[] = new byte[limits];
@@ -84,7 +84,7 @@ public class DummyDnsServer {
             ByteBuffer responseBuffer = ByteBuffer.wrap(responseMessage.getBytes());
 
             if (clientAddress != null)
-                serverChannel.send(responseBuffer, clientAddress);
+                serverDatagramChannel.send(responseBuffer, clientAddress);
         } catch (Exception e) {
             System.out.println("Exception thrown when attempting to send a Response: " + e.getMessage());
         }
