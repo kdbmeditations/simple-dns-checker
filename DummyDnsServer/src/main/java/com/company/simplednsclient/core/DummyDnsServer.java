@@ -18,10 +18,9 @@ public class DummyDnsServer {
     public DummyDnsServer() {
     }
 
-    public void run() throws InterruptedException {
+    public void run() {
         for (;;) {
             checkForRequest();
-            Thread.sleep(1000);
         }
     }
 

@@ -63,7 +63,7 @@ public class DnsTracker {
                 checkForResponse();
                 break;
             case TIMED_OUT:
-                dnsTrackerState = DnsTrackerState.TIMED_OUT;
+                System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " has timed out...");
                 break;
         }
     }
@@ -86,31 +86,39 @@ public class DnsTracker {
         }
     }
 
-    private void sendRequest() throws IOException {
-        System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " sending request...");
+    private void sendRequest() {
+        try {
+            System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " sending request...");
 
-        String msg = "I am DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " requesting information...";
-        requestMessageBuffer = ByteBuffer.wrap(msg.getBytes());
-        dnsTrackerChannel.send(requestMessageBuffer, serverAddress);
+            String msg = "I am DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " requesting information...";
+            requestMessageBuffer = ByteBuffer.wrap(msg.getBytes());
+            dnsTrackerChannel.send(requestMessageBuffer, serverAddress);
 
-        requestMessageBuffer.clear();
-        dnsTrackerState = DnsTrackerState.WAITING_FOR_RESPONSE;
+            requestMessageBuffer.clear();
+            dnsTrackerState = DnsTrackerState.WAITING_FOR_RESPONSE;
+        } catch (Exception e) {
+            System.out.println("Exception thrown when DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() +  " attempted to send a Request: " + e.getMessage());
+        }
     }
 
-    private void processResponse() throws IOException {
-        System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " processing response..");
+    private void processResponse() {
+        try {
+            System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() + " processing response..");
 
-        dnsTrackerChannel.receive(responseMessageBuffer);
-        responseMessageBuffer.flip();
-        int limits = responseMessageBuffer.limit();
-        byte bytes[] = new byte[limits];
-        responseMessageBuffer.get(bytes, 0, limits);
-        String message = new String(bytes);
+            dnsTrackerChannel.receive(responseMessageBuffer);
+            responseMessageBuffer.flip();
+            int limits = responseMessageBuffer.limit();
+            byte bytes[] = new byte[limits];
+            responseMessageBuffer.get(bytes, 0, limits);
+            String message = new String(bytes);
 
-        System.out.println("DNS Tracker (ID: " + dnsTrackerId + "): Server at " + serverAddress + " sent: " + message);
+            System.out.println("DNS Tracker (ID: " + dnsTrackerId + "): Server at " + serverAddress + " sent: " + message);
 
-        responseMessageBuffer.clear();
-        failedAttempts = 0;
-        dnsTrackerState = DnsTrackerState.STANDBY;
+            responseMessageBuffer.clear();
+            failedAttempts = 0;
+            dnsTrackerState = DnsTrackerState.STANDBY;
+        } catch (Exception e) {
+            System.out.println("Exception thrown when DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerChannel.socket().getLocalPort() +  " attempted process a Request: " + e.getMessage());
+        }
     }
 }
