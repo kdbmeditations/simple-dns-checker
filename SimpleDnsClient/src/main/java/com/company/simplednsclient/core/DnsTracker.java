@@ -31,7 +31,7 @@ public class DnsTracker {
     public DnsTracker(int dnsTrackerId) {
         this.dnsTrackerId = dnsTrackerId;
         this.timeOutThresholdCount = 0;
-        this.dnsTrackerState = DnsTrackerState.STANDBY;
+        this.dnsTrackerState = DnsTrackerState.SEND_REQUEST;
     }
 
     public void start() {
@@ -50,7 +50,7 @@ public class DnsTracker {
             long now = System.nanoTime();
             nextTimeInterval = now + (checkTimeInterval * NanoTo.SECOND);
         } catch (Exception e) {
-            System.out.println("Exception thrown when attempting to start a DNS Tracker: " + e.getMessage());
+            System.out.println("Exception thrown when attempting to start a DNS Tracker (ID: " + dnsTrackerId + "): " + e.getMessage());
         }
     }
 
@@ -63,16 +63,16 @@ public class DnsTracker {
                 nextTimeInterval = now + (checkTimeInterval * NanoTo.SECOND);
             }
         } catch (Exception e) {
-            System.out.println("Exception thrown when attempting to perform a DNS Tracker check: " + e.getMessage());
+            System.out.println("Exception thrown when attempting to perform a DNS Tracker (ID: " + dnsTrackerId + ") check: " + e.getMessage());
         }
     }
 
     private void checkState() throws IOException {
         switch (dnsTrackerState) {
-            case STANDBY:
+            case SEND_REQUEST:
                 sendRequest();
                 break;
-            case WAITING_FOR_RESPONSE:
+            case CHECK_RESPONSE:
                 checkForResponse();
                 break;
             case TIMED_OUT:
@@ -83,23 +83,31 @@ public class DnsTracker {
 
     private void checkForResponse() throws IOException {
         if (dnsTrackerSelector.selectNow() >= 1) {
-            Set keys = dnsTrackerSelector.selectedKeys();
-
-            for(Iterator keyIterator = keys.iterator(); keyIterator.hasNext(); ) {
-                SelectionKey key = (SelectionKey)keyIterator.next();
-                keyIterator.remove();
-
-                if (key.isReadable()) {
-                    processResponse();
-                }
-            }
+            handleResponse();
         } else {
-            timeOutThresholdCount++;
-            System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerDatagramChannel.socket().getLocalPort() + " failed to receive response - timeout treshold count: " + timeOutThresholdCount);
+            handleNoResponse();
+        }
+    }
 
-            if (timeOutThresholdCount == timeOutThresholdMax) {
-                dnsTrackerState = DnsTrackerState.TIMED_OUT;
+    private void handleResponse() {
+        Set keys = dnsTrackerSelector.selectedKeys();
+
+        for(Iterator keyIterator = keys.iterator(); keyIterator.hasNext(); ) {
+            SelectionKey key = (SelectionKey)keyIterator.next();
+            keyIterator.remove();
+
+            if (key.isReadable()) {
+                processResponse();
             }
+        }
+    }
+
+    private void handleNoResponse() {
+        timeOutThresholdCount++;
+        System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerDatagramChannel.socket().getLocalPort() + " failed to receive response - timeout treshold count: " + timeOutThresholdCount);
+
+        if (timeOutThresholdCount == timeOutThresholdMax) {
+            dnsTrackerState = DnsTrackerState.TIMED_OUT;
         }
     }
 
@@ -112,7 +120,7 @@ public class DnsTracker {
             dnsTrackerDatagramChannel.send(requestMessageBuffer, serverAddress);
 
             requestMessageBuffer.clear();
-            dnsTrackerState = DnsTrackerState.WAITING_FOR_RESPONSE;
+            dnsTrackerState = DnsTrackerState.CHECK_RESPONSE;
         } catch (Exception e) {
             System.out.println("Exception thrown when DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerDatagramChannel.socket().getLocalPort() +  " attempted to send a Request: " + e.getMessage());
         }
@@ -129,10 +137,10 @@ public class DnsTracker {
             responseMessageBuffer.get(bytes, 0, limits);
             String message = new String(bytes);
 
-            System.out.println("DNS Tracker (ID: " + dnsTrackerId + "): Server at " + serverAddress + " sent: " + message);
+            System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") received a response: Server at " + serverAddress + " sent: " + message);
 
             responseMessageBuffer.clear();
-            dnsTrackerState = DnsTrackerState.STANDBY;
+            dnsTrackerState = DnsTrackerState.SEND_REQUEST;
 
             timeOutThresholdCount = 0;
         } catch (Exception e) {

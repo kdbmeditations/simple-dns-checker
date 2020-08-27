@@ -45,19 +45,23 @@ public class DummyDnsServer {
     private void checkForRequest() {
         try {
             if (selector.selectNow() >= 1) {
-                Set keys = selector.selectedKeys();
-
-                for(Iterator keyIterator = keys.iterator(); keyIterator.hasNext();) {
-                    SelectionKey key = (SelectionKey)keyIterator.next();
-                    keyIterator.remove();
-
-                    if (key.isReadable()) {
-                        processRequest();
-                    }
-                }
+                handleRequest();
             }
         } catch (Exception e) {
             System.out.println("Exception thrown when attempting to check for Request: " + e.getMessage());
+        }
+    }
+
+    private void handleRequest() {
+        Set keys = selector.selectedKeys();
+
+        for(Iterator keyIterator = keys.iterator(); keyIterator.hasNext();) {
+            SelectionKey key = (SelectionKey)keyIterator.next();
+            keyIterator.remove();
+
+            if (key.isReadable()) {
+                processRequest();
+            }
         }
     }
 
