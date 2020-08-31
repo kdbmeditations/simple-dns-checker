@@ -18,6 +18,7 @@
 ./build
 **/build
 **/*.iml
+/control
 
 # Generated files
 .idea/**/contentModel.xml
