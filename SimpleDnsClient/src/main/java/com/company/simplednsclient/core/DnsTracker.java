@@ -91,6 +91,7 @@ public class DnsTracker {
                 // call event handler to handle external state
                 dnsTrackerInternalState = DnsTrackerInternalState.SLEEPING;
                 wakeUpTime = now + (nextTimeInterval * NanoTo.SECOND);
+                delayedTimeInterval = nextTimeInterval;
                 break;
         }
     }
