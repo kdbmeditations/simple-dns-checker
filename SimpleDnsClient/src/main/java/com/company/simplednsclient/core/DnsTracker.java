@@ -1,6 +1,7 @@
 package com.company.simplednsclient.core;
 
-import com.company.simplednsclient.utils.DnsTrackerState;
+import com.company.simplednsclient.utils.DnsTrackerInternalState;
+import com.company.simplednsclient.utils.DnsTrackerExternalState;
 import com.company.simplednsclient.utils.NanoTo;
 
 import java.io.IOException;
@@ -16,22 +17,26 @@ public class DnsTracker {
     private InetSocketAddress serverAddress;
     private DatagramChannel dnsTrackerDatagramChannel;
     private Selector dnsTrackerSelector;
-    private DnsTrackerState dnsTrackerState;
+
+    private DnsTrackerInternalState dnsTrackerInternalState;
+    private DnsTrackerExternalState dnsTrackerExternalState;
     private int dnsTrackerId;
 
     private ByteBuffer requestMessageBuffer;
     private ByteBuffer responseMessageBuffer;
 
-    private long timeOutThresholdCount;
+    private long timeOutThresholdCount = 0;
     private long timeOutThresholdMax = 5;
 
-    private long nextTimeInterval;
-    private long checkTimeInterval = 5;
+    private long nextTimeInterval = 5;
+    private long delayedTimeInterval = nextTimeInterval;
+
+    private long wakeUpTime;
 
     public DnsTracker(int dnsTrackerId) {
         this.dnsTrackerId = dnsTrackerId;
-        this.timeOutThresholdCount = 0;
-        this.dnsTrackerState = DnsTrackerState.SEND_REQUEST;
+        this.dnsTrackerInternalState = DnsTrackerInternalState.SEND_REQUEST;
+        this.dnsTrackerExternalState = DnsTrackerExternalState.UNKNOWN;
     }
 
     public void start() {
@@ -46,9 +51,6 @@ public class DnsTracker {
             dnsTrackerSelector = Selector.open();
             dnsTrackerDatagramChannel.register(dnsTrackerSelector, SelectionKey.OP_READ);
             responseMessageBuffer = ByteBuffer.allocate(1024);
-
-            long now = System.nanoTime();
-            nextTimeInterval = now + (checkTimeInterval * NanoTo.SECOND);
         } catch (Exception e) {
             System.out.println("Exception thrown when attempting to start a DNS Tracker (ID: " + dnsTrackerId + "): " + e.getMessage());
         }
@@ -56,19 +58,15 @@ public class DnsTracker {
 
     public void check() {
         try {
-            long now = System.nanoTime();
-
-            if ((now - nextTimeInterval) >= 0) {
-                checkState();
-                nextTimeInterval = now + (checkTimeInterval * NanoTo.SECOND);
-            }
+            checkState();
         } catch (Exception e) {
             System.out.println("Exception thrown when attempting to perform a DNS Tracker (ID: " + dnsTrackerId + ") check: " + e.getMessage());
         }
     }
 
     private void checkState() throws IOException {
-        switch (dnsTrackerState) {
+        long now = System.nanoTime();
+        switch (dnsTrackerInternalState) {
             case SEND_REQUEST:
                 sendRequest();
                 break;
@@ -76,7 +74,23 @@ public class DnsTracker {
                 checkForResponse();
                 break;
             case TIMED_OUT:
-                System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerDatagramChannel.socket().getLocalPort() + " has timed out...");
+                dnsTrackerExternalState = DnsTrackerExternalState.UNHEALTHY;
+                // call event handler to handle external state
+                delayedTimeInterval += nextTimeInterval;
+                dnsTrackerInternalState = DnsTrackerInternalState.SLEEPING;
+                wakeUpTime = now + (delayedTimeInterval * NanoTo.SECOND);
+                System.out.println("Current delayed time interval (in seconds): " + delayedTimeInterval);
+                break;
+            case SLEEPING:
+                if (now - wakeUpTime >= 0) {
+                    dnsTrackerInternalState = DnsTrackerInternalState.SEND_REQUEST;
+                }
+                break;
+            case RESPONSE_RECEIVED:
+                dnsTrackerExternalState = DnsTrackerExternalState.HEALTHY;
+                // call event handler to handle external state
+                dnsTrackerInternalState = DnsTrackerInternalState.SLEEPING;
+                wakeUpTime = now + (nextTimeInterval * NanoTo.SECOND);
                 break;
         }
     }
@@ -100,14 +114,17 @@ public class DnsTracker {
                 processResponse();
             }
         }
+
+        dnsTrackerInternalState = DnsTrackerInternalState.RESPONSE_RECEIVED;
     }
 
     private void handleNoResponse() {
         timeOutThresholdCount++;
         System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerDatagramChannel.socket().getLocalPort() + " failed to receive response - timeout treshold count: " + timeOutThresholdCount);
 
-        if (timeOutThresholdCount == timeOutThresholdMax) {
-            dnsTrackerState = DnsTrackerState.TIMED_OUT;
+        if (timeOutThresholdCount >= timeOutThresholdMax) {
+            dnsTrackerInternalState = DnsTrackerInternalState.TIMED_OUT;
+            timeOutThresholdCount = 0;
         }
     }
 
@@ -120,7 +137,7 @@ public class DnsTracker {
             dnsTrackerDatagramChannel.send(requestMessageBuffer, serverAddress);
 
             requestMessageBuffer.clear();
-            dnsTrackerState = DnsTrackerState.CHECK_RESPONSE;
+            dnsTrackerInternalState = DnsTrackerInternalState.CHECK_RESPONSE;
         } catch (Exception e) {
             System.out.println("Exception thrown when DNS Tracker (ID: " + dnsTrackerId + ") running on PORT " + dnsTrackerDatagramChannel.socket().getLocalPort() +  " attempted to send a Request: " + e.getMessage());
         }
@@ -140,7 +157,7 @@ public class DnsTracker {
             System.out.println("DNS Tracker (ID: " + dnsTrackerId + ") received a response: Server at " + serverAddress + " sent: " + message);
 
             responseMessageBuffer.clear();
-            dnsTrackerState = DnsTrackerState.SEND_REQUEST;
+            dnsTrackerInternalState = DnsTrackerInternalState.SEND_REQUEST;
 
             timeOutThresholdCount = 0;
         } catch (Exception e) {
